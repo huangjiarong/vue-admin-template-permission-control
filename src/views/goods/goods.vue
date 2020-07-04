@@ -55,7 +55,10 @@
           <el-button type="primary" size="mini" @click="handleUpdate(row)">
             编辑
           </el-button>
-          <el-button v-if="checkPermission(['can_delete'])" size="mini" type="danger" @click="handleDelete(row,$index)">
+          <!-- <el-button v-if="checkPermission(['can_delete'])" size="mini" type="danger" @click="handleDelete(row,$index)">
+            删除
+          </el-button> -->
+          <el-button v-if="checkPermission(['admin', 'can_delete'])" size="mini" type="danger" @click="handleDelete(row,$index)">
             删除
           </el-button>
         </template>
@@ -263,6 +266,21 @@ export default {
       })
     },
     handleDelete(row, index) {
+      this.$confirm('此操作将永久删除该文件, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.$message({
+          type: 'success',
+          message: '删除成功!'
+        })
+      }).catch(() => {
+        this.$message({
+          type: 'info',
+          message: '已取消删除'
+        })
+      })
       this.$notify({
         title: 'Success',
         message: 'Delete Successfully',
