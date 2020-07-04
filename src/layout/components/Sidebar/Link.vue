@@ -36,13 +36,13 @@ export default {
         }
       }
       return {
+        to: to
       }
     },
     // 点击后跳转到重定向页面, 解决左侧点击相同路由不刷新问题
     clickLink(to) {
-      const { fullPath } = this.$route
       this.$router.replace({
-        path: '/redirect' + fullPath
+        path: '/redirect' + to
       })
     }
   }
