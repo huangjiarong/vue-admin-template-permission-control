@@ -1,10 +1,17 @@
 import request from '@/utils/request'
 
-export function fetchList(query) {
+export function getAllGoods(query) {
   return request({
     url: '/api/goods/',
     method: 'get',
     params: query
+  })
+}
+
+export function getAllCategory() {
+  return request({
+    url: '/api/category/',
+    method: 'get'
   })
 }
 
