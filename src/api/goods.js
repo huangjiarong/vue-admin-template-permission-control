@@ -31,9 +31,9 @@ export function fetchPv(pv) {
   })
 }
 
-export function createArticle(data) {
+export function createGoods(data) {
   return request({
-    url: '/vue-element-admin/article/create',
+    url: '/api/goods/',
     method: 'post',
     data
   })

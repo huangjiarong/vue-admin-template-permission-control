@@ -55,9 +55,6 @@
           <el-button type="primary" size="mini" @click="handleUpdate(row)">
             编辑
           </el-button>
-          <!-- <el-button v-if="checkPermission(['can_delete'])" size="mini" type="danger" @click="handleDelete(row,$index)">
-            删除
-          </el-button> -->
           <el-button v-if="checkPermission(['admin', 'can_delete'])" size="mini" type="danger" @click="handleDelete(row,$index)">
             删除
           </el-button>
@@ -68,22 +65,42 @@
     <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" @pagination="getList" />
 
     <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible">
-      <el-form ref="dataForm" :rules="rules" :model="temp" label-position="left" label-width="70px" style="width: 400px; margin-left:50px;">
-        <el-form-item label="分类" prop="category_id">
-          <el-select v-model="temp.category_id" class="filter-item" placeholder="请选择分类">
+      <el-form ref="dataForm" :rules="rules" :model="temp" label-position="left" label-width="70px" style="width: 400px; margin-left:50px;" enctype="multipart/form-data">
+        <el-form-item label="分类" prop="category">
+          <el-select v-model="temp.category" class="filter-item" placeholder="请选择分类">
             <el-option v-for="item in categoryOptions" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="商品名" prop="name">
           <el-input v-model="temp.name" />
         </el-form-item>
+        <el-form-item ref="cover" label="封面图" prop="cover_img">
+          <el-upload
+            ref="upload"
+            class="upload-demo"
+            action="http://localhost:8000/backend/api/goods/"
+            name="cover_img"
+            accept="image/png, image/jpeg"
+            :before-upload="beforeUpload"
+            :before-remove="beforeRemove"
+            :on-change="onChange"
+            :on-success="onSuccess"
+            :on-error="onError"
+            :limit="1"
+            :auto-upload="false"
+            :data="temp"
+          >
+            <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
+            <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
+          </el-upload>
+        </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
-        <el-button @click="dialogFormVisible = false">
-          取消
-        </el-button>
-        <el-button type="primary" @click="dialogStatus==='create'?createData():updateData()">
+        <el-button type="primary" @click="dialogStatus==='create'?createData('dataForm'):updateData()">
           确定
+        </el-button>
+        <el-button @click="dialogFormVisible=false">
+          取消
         </el-button>
       </div>
     </el-dialog>
@@ -125,13 +142,13 @@ export default {
         sort: '+id'
       },
       categoryOptions: [],
+      fileList: [],
       sortOptions: [{ label: 'ID Ascending', key: '+id' }, { label: 'ID Descending', key: '-id' }],
       statusOptions: ['published', 'draft', 'deleted'],
       showReviewer: false,
       temp: {
         name: '',
-        category_id: '',
-        status: 'published'
+        category: ''
       },
       dialogFormVisible: false,
       dialogStatus: '',
@@ -140,9 +157,11 @@ export default {
         create: '添加新商品'
       },
       dialogPvVisible: false,
+      // 表单验证
       rules: {
-        category_id: [{ required: true, message: '分类是必须选择的!', trigger: 'change' }],
-        name: [{ required: true, message: '商品名是必须填写的!', trigger: 'blur' }]
+        category: [{ required: true, message: '分类是必须选择的!', trigger: 'change' }],
+        name: [{ required: true, message: '商品名是必须填写的!', trigger: 'blur' }],
+        cover_img: [{ required: true, message: '封面图必须选择!', trigger: 'blur' }]
       },
       downloadLoading: false
     }
@@ -164,6 +183,7 @@ export default {
         }, 1.5 * 1000)
       })
     },
+    // 获取弹出框分类选择的数据
     getCategoryOptions() {
       getAllCategory().then(response => {
         this.categoryOptions = response.results
@@ -194,46 +214,34 @@ export default {
       }
       this.handleFilter()
     },
+    // 打开弹出框时重置表单数据
     resetTemp() {
       this.temp = {
         name: '',
-        category_id: '',
-        status: 'published'
+        category: ''
       }
     },
     // 添加功能, 弹出添加框
     handleCreate() {
+      // 获取可供选择的商品类别
       this.getCategoryOptions()
       this.resetTemp()
       this.dialogStatus = 'create'
       this.dialogFormVisible = true
       this.$nextTick(() => {
         this.$refs['dataForm'].clearValidate()
+        // 清空图片选择
+        this.$refs.upload.clearFiles()
       })
     },
     // 保存新增的数据
-    createData() {
-      this.$refs['dataForm'].validate((valid) => {
+    createData(configForm) {
+      this.$refs[configForm].validate((valid) => {
         if (valid) {
-          console.log(this.temp)
-          this.list.unshift(this.temp)
-          this.dialogFormVisible = false
-          this.$notify({
-            title: 'Success',
-            message: 'Created Successfully',
-            type: 'success',
-            duration: 2000
-          })
-          // createArticle(this.temp).then(() => {
-          //   this.list.unshift(this.temp)
-          //   this.dialogFormVisible = false
-          //   this.$notify({
-          //     title: 'Success',
-          //     message: 'Created Successfully',
-          //     type: 'success',
-          //     duration: 2000
-          //   })
-          // })
+          // 验证成功后上传
+          this.$refs.upload.submit()
+        } else {
+          return false
         }
       })
     },
@@ -271,6 +279,7 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
+        this.list.splice(index, 1)
         this.$message({
           type: 'success',
           message: '删除成功!'
@@ -287,11 +296,63 @@ export default {
         type: 'success',
         duration: 2000
       })
-      this.list.splice(index, 1)
     },
     getSortClass: function(key) {
       const sort = this.listQuery.sort
       return sort === `+${key}` ? 'ascending' : 'descending'
+    },
+    beforeUpload(file) {
+      // 判断文件后缀是否为jpg和png, 不是则停止上传
+      const FileExt = file.name.replace(/.+\./, '')
+      if (['jpg', 'png'].indexOf(FileExt.toLowerCase()) === -1) {
+        this.$message({
+          type: 'error',
+          message: '请上传后缀名为jpg、png的附件！'
+        })
+        return false
+      }
+      // 限制文件上传大小, 大于5M则停止上传
+      const isLt5M = file.size / 1024 / 1024 < 5
+      if (!isLt5M) {
+        this.$message({
+          message: '上传文件大小不能超过5M!',
+          type: 'error'
+        })
+        return false
+      }
+      return true
+    },
+    beforeRemove(file, fileList) {
+      // 当没有选择图片时, 修改验证规则为必须
+      if (fileList.length === 1) {
+        this.rules.cover_img = [{ required: true, message: '封面图必须选择!', trigger: 'blur' }]
+      }
+    },
+    onChange(file, fileList) {
+      // 上传控件有选择时, 修改验证规则为空
+      this.rules.cover_img = []
+    },
+    // 上传文件成功回调事件
+    onSuccess(response, file, fileList) {
+      this.list.unshift(response)
+      this.dialogFormVisible = false
+      this.$notify({
+        title: 'Success',
+        message: '创建成功',
+        type: 'success',
+        duration: 2000
+      })
+    },
+    // 上传文件失败回调事件
+    onError(file, fileList) {
+      console.log('on error: ' + file)
+      this.dialogFormVisible = false
+      this.$notify({
+        title: 'Error',
+        message: '创建失败',
+        type: 'error',
+        duration: 2000
+      })
     },
     checkPermission
   }
