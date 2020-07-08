@@ -35,7 +35,17 @@ export function createGoods(data) {
   return request({
     url: '/api/goods/',
     method: 'post',
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    },
     data
+  })
+}
+
+export function deleteGoods(id) {
+  return request({
+    url: '/api/goods/' + id + '/',
+    method: 'delete'
   })
 }
 

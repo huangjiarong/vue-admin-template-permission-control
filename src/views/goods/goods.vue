@@ -41,8 +41,18 @@
           <span>{{ row.category }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="商品封面图" width="150px" align="center">
+      <el-table-column label="商品封面图" width="160px" align="center">
         <template slot-scope="scope">
+          <el-image
+            class="table-td-thumb"
+            :src="scope.row.cover_img"
+            :preview-src-list="[scope.row.cover_img]"
+          />
+          <el-image
+            class="table-td-thumb"
+            :src="scope.row.cover_img"
+            :preview-src-list="[scope.row.cover_img]"
+          />
           <el-image
             class="table-td-thumb"
             :src="scope.row.cover_img"
@@ -74,29 +84,57 @@
         <el-form-item label="商品名" prop="name">
           <el-input v-model="temp.name" />
         </el-form-item>
-        <el-form-item ref="cover" label="封面图" prop="cover_img">
+        <el-form-item v-if="dialogStatus==='create'" ref="cover" label="封面图" prop="cover_img">
           <el-upload
             ref="upload"
             class="upload-demo"
-            action="http://localhost:8000/backend/api/goods/"
-            name="cover_img"
+            action=""
             accept="image/png, image/jpeg"
-            :before-upload="beforeUpload"
+            :before-upload="beforeUploadDetail"
             :before-remove="beforeRemove"
             :on-change="onChange"
-            :on-success="onSuccess"
-            :on-error="onError"
             :limit="1"
             :auto-upload="false"
-            :data="temp"
           >
             <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
             <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
           </el-upload>
         </el-form-item>
+        <el-form-item v-else ref="cover" label="封面图" prop="cover_img">
+          <el-upload
+            ref="upload"
+            class="upload-demo"
+            action=""
+            accept="image/png, image/jpeg"
+            :before-upload="beforeUploadDetail"
+            :before-remove="beforeRemove"
+            :on-change="onChange"
+            :limit="1"
+            :auto-upload="false"
+            :file-list="temp.cover_img"
+            list-type="picture"
+          >
+            <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
+            <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
+          </el-upload>
+        </el-form-item>
+        <!-- <el-form-item ref="detail_img" label="详情图" prop="detail_img">
+          <el-upload
+            ref="upload_detail"
+            class="upload-demo"
+            action=""
+            name="detail_img"
+            accept="image/png, image/jpeg"
+            :before-upload="beforeUploadDetail"
+            :auto-upload="false"
+          >
+            <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
+            <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
+          </el-upload>
+        </el-form-item> -->
       </el-form>
       <div slot="footer" class="dialog-footer">
-        <el-button type="primary" @click="dialogStatus==='create'?createData('dataForm'):updateData()">
+        <el-button type="primary" @click="dialogStatus==='create'?createData():updateData()">
           确定
         </el-button>
         <el-button @click="dialogFormVisible=false">
@@ -110,7 +148,7 @@
 
 <script>
 // import { fetchList, fetchPv, createArticle, updateArticle } from '@/api/article'
-import { getAllGoods, getAllCategory, updateArticle } from '@/api/goods'
+import { getAllGoods, getAllCategory, updateArticle, createGoods, deleteGoods } from '@/api/goods'
 import waves from '@/directive/waves' // waves directive
 import checkPermission from '@/utils/permission'
 import Pagination from '@/components/Pagination' // secondary package based on el-pagination
@@ -141,6 +179,9 @@ export default {
         title: undefined,
         sort: '+id'
       },
+      // 该字段用来决定是否进行请求createData的api
+      toUpload: true,
+      uploadForm: new FormData(),
       categoryOptions: [],
       fileList: [],
       sortOptions: [{ label: 'ID Ascending', key: '+id' }, { label: 'ID Descending', key: '-id' }],
@@ -235,19 +276,33 @@ export default {
       })
     },
     // 保存新增的数据
-    createData(configForm) {
-      this.$refs[configForm].validate((valid) => {
+    createData() {
+      this.$refs['dataForm'].validate((valid) => {
         if (valid) {
-          // 验证成功后上传
           this.$refs.upload.submit()
-        } else {
-          return false
+          if (!this.toUpload) {
+            return false
+          }
+          this.uploadForm.append('category', this.temp.category)
+          this.uploadForm.append('name', this.temp.name)
+          createGoods(this.uploadForm).then(response => {
+            this.list.unshift(response)
+            this.dialogFormVisible = false
+            this.$notify({
+              title: '成功',
+              message: '新建成功',
+              type: 'success',
+              duration: 2000
+            })
+          })
         }
       })
     },
     handleUpdate(row) {
       this.temp = Object.assign({}, row) // copy obj
-      this.temp.timestamp = new Date(this.temp.timestamp)
+      const cover_img = this.temp.cover_img
+      this.temp.cover_img = [{ 'name': '图片1', 'url': cover_img }]
+      this.getCategoryOptions()
       this.dialogStatus = 'update'
       this.dialogFormVisible = true
       this.$nextTick(() => {
@@ -280,9 +335,12 @@ export default {
         type: 'warning'
       }).then(() => {
         this.list.splice(index, 1)
-        this.$message({
-          type: 'success',
-          message: '删除成功!'
+        const name = row.name
+        deleteGoods(row.id).then(res => {
+          this.$message({
+            type: 'success',
+            message: '删除 ' + name + ' 成功!'
+          })
         })
       }).catch(() => {
         this.$message({
@@ -290,69 +348,48 @@ export default {
           message: '已取消删除'
         })
       })
-      this.$notify({
-        title: 'Success',
-        message: 'Delete Successfully',
-        type: 'success',
-        duration: 2000
-      })
     },
     getSortClass: function(key) {
       const sort = this.listQuery.sort
       return sort === `+${key}` ? 'ascending' : 'descending'
     },
-    beforeUpload(file) {
-      // 判断文件后缀是否为jpg和png, 不是则停止上传
+    beforeUploadDetail(file) {
+      // 判断文件后缀是否为jpg和png, 不是则提示, 且不请求提交表单
       const FileExt = file.name.replace(/.+\./, '')
       if (['jpg', 'png'].indexOf(FileExt.toLowerCase()) === -1) {
         this.$message({
           type: 'error',
           message: '请上传后缀名为jpg、png的附件！'
         })
+        this.toUpload = false
         return false
       }
-      // 限制文件上传大小, 大于5M则停止上传
+      // 限制文件上传大小, 大于5M则提示, 且不请求提交表单
       const isLt5M = file.size / 1024 / 1024 < 5
       if (!isLt5M) {
         this.$message({
           message: '上传文件大小不能超过5M!',
           type: 'error'
         })
+        this.toUpload = false
         return false
       }
-      return true
+      this.uploadForm.append('cover_img', file)
+      this.toUpload = true
+      return false
     },
     beforeRemove(file, fileList) {
       // 当没有选择图片时, 修改验证规则为必须
+      console.log('before move' + fileList.length)
       if (fileList.length === 1) {
         this.rules.cover_img = [{ required: true, message: '封面图必须选择!', trigger: 'blur' }]
+      // this.temp.cover_img = ''
       }
     },
     onChange(file, fileList) {
       // 上传控件有选择时, 修改验证规则为空
       this.rules.cover_img = []
-    },
-    // 上传文件成功回调事件
-    onSuccess(response, file, fileList) {
-      this.list.unshift(response)
-      this.dialogFormVisible = false
-      this.$notify({
-        title: 'Success',
-        message: '创建成功',
-        type: 'success',
-        duration: 2000
-      })
-    },
-    // 上传文件失败回调事件
-    onError(file, fileList) {
-      console.log('on error: ' + file)
-      this.dialogFormVisible = false
-      this.$notify({
-        title: 'Error',
-        message: '创建失败',
-        type: 'error',
-        duration: 2000
-      })
+      this.$refs['cover'].clearValidate()
     },
     checkPermission
   }
@@ -365,5 +402,7 @@ export default {
     margin: auto;
     width: 40px;
     height: 40px;
+    float: left;
+    margin-right: 5px;
 }
 </style>
