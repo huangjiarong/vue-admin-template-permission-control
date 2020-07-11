@@ -38,21 +38,34 @@
       </el-table-column>
       <el-table-column label="类别" width="110px" align="center">
         <template slot-scope="{row}">
-          <span>{{ row.category }}</span>
+          <span>{{ row.category_name }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="商品封面图" width="160px" align="center">
+      <el-table-column label="商品描述" width="150px">
+        <template slot-scope="{row}">
+          <span>{{ row.goods_brief }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="商品规格" align="center">
+        <el-table-column label="规格" width="80px" align="center">
+          <template slot-scope="{row}">
+            <div v-for="item in row.specifications" :key="item.id">
+              <span>{{ item.name }}</span>
+              <br>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="价格" width="80px" align="center">
+          <template slot-scope="{row}">
+            <div v-for="item in row.specifications" :key="item.id">
+              <span>{{ item.price }}</span>
+              <br>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table-column>
+      <el-table-column label="商品封面图" width="100px" align="center">
         <template slot-scope="scope">
-          <el-image
-            class="table-td-thumb"
-            :src="scope.row.cover_img"
-            :preview-src-list="[scope.row.cover_img]"
-          />
-          <el-image
-            class="table-td-thumb"
-            :src="scope.row.cover_img"
-            :preview-src-list="[scope.row.cover_img]"
-          />
           <el-image
             class="table-td-thumb"
             :src="scope.row.cover_img"
@@ -74,70 +87,93 @@
 
     <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" @pagination="getList" />
 
-    <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible">
+    <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible" :before-close="closeDialog" :close-on-click-modal="false" :fullscreen="false" width="70%">
       <el-form ref="dataForm" :rules="rules" :model="temp" label-position="left" label-width="70px" style="width: 400px; margin-left:50px;" enctype="multipart/form-data">
-        <el-form-item label="分类" prop="category">
-          <el-select v-model="temp.category" class="filter-item" placeholder="请选择分类">
-            <el-option v-for="item in categoryOptions" :key="item.id" :label="item.name" :value="item.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="商品名" prop="name">
-          <el-input v-model="temp.name" />
-        </el-form-item>
-        <el-form-item v-if="dialogStatus==='create'" ref="cover" label="封面图" prop="cover_img">
-          <el-upload
-            ref="upload"
-            class="upload-demo"
-            action=""
-            accept="image/png, image/jpeg"
-            :before-upload="beforeUploadDetail"
-            :before-remove="beforeRemove"
-            :on-change="onChange"
-            :limit="1"
-            :auto-upload="false"
-          >
-            <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
-            <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
-          </el-upload>
-        </el-form-item>
-        <el-form-item v-else ref="cover" label="封面图" prop="cover_img">
-          <el-upload
-            ref="upload"
-            class="upload-demo"
-            action=""
-            accept="image/png, image/jpeg"
-            :before-upload="beforeUploadDetail"
-            :before-remove="beforeRemove"
-            :on-change="onChange"
-            :limit="1"
-            :auto-upload="false"
-            :file-list="temp.cover_img"
-            list-type="picture"
-          >
-            <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
-            <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
-          </el-upload>
-        </el-form-item>
-        <!-- <el-form-item ref="detail_img" label="详情图" prop="detail_img">
-          <el-upload
-            ref="upload_detail"
-            class="upload-demo"
-            action=""
-            name="detail_img"
-            accept="image/png, image/jpeg"
-            :before-upload="beforeUploadDetail"
-            :auto-upload="false"
-          >
-            <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
-            <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
-          </el-upload>
-        </el-form-item> -->
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="分类" prop="category">
+              <el-select v-model="temp.category" class="filter-item" placeholder="请选择分类">
+                <el-option v-for="item in categoryOptions" :key="item.id" :label="item.name" :value="item.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="商品名" prop="name">
+              <el-input v-model="temp.name" />
+            </el-form-item>
+            <el-form-item v-if="dialogStatus==='create'" ref="cover" label="封面图" prop="cover_img">
+              <el-upload
+                ref="upload"
+                class="upload-demo"
+                action=""
+                accept="image/png, image/jpeg"
+                :before-upload="beforeUpload"
+                :on-remove="onRemove"
+                :on-change="onChange"
+                :on-exceed="onExceed"
+                :limit="1"
+                :auto-upload="false"
+                list-type="picture"
+              >
+                <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
+                <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
+              </el-upload>
+            </el-form-item>
+            <el-form-item v-else ref="cover" label="封面图" prop="cover_img">
+              <el-upload
+                ref="upload"
+                class="upload-demo"
+                action=""
+                accept="image/png, image/jpeg"
+                :before-upload="beforeUpload"
+                :on-remove="onRemove"
+                :on-change="onChange"
+                :on-exceed="onExceed"
+                :limit="1"
+                :auto-upload="false"
+                :file-list="temp.cover_img"
+                list-type="picture"
+              >
+                <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
+                <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
+              </el-upload>
+            </el-form-item>
+            <el-table :data="temp.specifications">
+              <el-table-column label="商品规格">
+                <template slot-scope="{row}">
+                  <el-input v-model="row.name" class="edit-input" size="small" />
+                </template>
+              </el-table-column>
+              <el-table-column label="商品价格">
+                <template slot-scope="{row}">
+                  <el-input v-model="row.price" class="edit-input" size="small" />
+                </template>
+              </el-table-column>
+            </el-table>
+            <el-form-item>
+              <span class="link-type" @click="addNewSpec"> 点击添加一个规格 </span>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <!-- <el-table :data="specifications">
+              <el-table-column label="商品规格">
+                <template slot-scope="{row}">
+                  <el-input v-model="row.name" class="edit-input" size="medium" />
+                </template>
+              </el-table-column>
+              <el-table-column label="商品价格">
+                <template slot-scope="{row}">
+                  <el-input v-model="row.price" class="edit-input" size="small" />
+                </template>
+              </el-table-column>
+            </el-table> -->
+          </el-col>
+        </el-row>
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button type="primary" @click="dialogStatus==='create'?createData():updateData()">
           确定
         </el-button>
-        <el-button @click="dialogFormVisible=false">
+        <!-- <el-button @click="dialogFormVisible=false"> -->
+        <el-button @click="cancel">
           取消
         </el-button>
       </div>
@@ -148,7 +184,7 @@
 
 <script>
 // import { fetchList, fetchPv, createArticle, updateArticle } from '@/api/article'
-import { getAllGoods, getAllCategory, updateArticle, createGoods, deleteGoods } from '@/api/goods'
+import { getAllGoods, getAllCategory, deleteGoods, createGoods, updateGoods } from '@/api/goods'
 import waves from '@/directive/waves' // waves directive
 import checkPermission from '@/utils/permission'
 import Pagination from '@/components/Pagination' // secondary package based on el-pagination
@@ -179,7 +215,7 @@ export default {
         title: undefined,
         sort: '+id'
       },
-      // 该字段用来决定是否进行请求createData的api
+      // 该字段用来决定是否进行请求
       toUpload: true,
       uploadForm: new FormData(),
       categoryOptions: [],
@@ -189,8 +225,13 @@ export default {
       showReviewer: false,
       temp: {
         name: '',
-        category: ''
+        category: '',
+        specifications: [
+          { 'name': '', 'price': '' },
+          { 'name': '', 'price': '' }
+        ]
       },
+      originData: {},
       dialogFormVisible: false,
       dialogStatus: '',
       textMap: {
@@ -224,12 +265,12 @@ export default {
         }, 1.5 * 1000)
       })
     },
-    // 获取弹出框分类选择的数据
-    getCategoryOptions() {
-      getAllCategory().then(response => {
-        this.categoryOptions = response.results
-      })
+
+    // 在弹出对话框中添加一行商品规格以供输入
+    addNewSpec() {
+      this.temp.specifications.push({ 'name': '', 'price': '' })
     },
+
     handleFilter() {
       this.listQuery.page = 1
       this.getList()
@@ -255,24 +296,59 @@ export default {
       }
       this.handleFilter()
     },
+
+    // 关闭Dialog对话框前的钩子, 清除验证和文件列表
+    closeDialog(done) {
+      this.$refs.upload.clearFiles()
+      this.$refs['dataForm'].clearValidate()
+      done()
+    },
+
+    // 对话框中的取消事件, 清除验证和文件列表
+    cancel() {
+      this.$refs.upload.clearFiles()
+      this.$refs['dataForm'].clearValidate()
+      this.dialogFormVisible = false
+    },
+
+    // 获取填写的规格信息, 要求2个都不为空
+    getSpecifications(specifications) {
+      var specList = []
+      specifications.forEach(function(element, index, arr) {
+        if (element.name && element.price) {
+          specList.push(element)
+        }
+      })
+      return specList
+    },
+
     // 打开弹出框时重置表单数据
     resetTemp() {
       this.temp = {
         name: '',
         category: ''
       }
+      this.temp.specifications = [
+        { 'name': '', 'price': '' },
+        { 'name': '', 'price': '' }
+      ]
+      this.uploadForm = new FormData()
     },
+    // 打开弹出框时重置upload控件的规则
+    resetUploadRules() {
+      this.rules.cover_img = [{ required: true, message: '封面图必须选择!', trigger: 'blur' }]
+    },
+
     // 添加功能, 弹出添加框
     handleCreate() {
       // 获取可供选择的商品类别
       this.getCategoryOptions()
       this.resetTemp()
+      this.resetUploadRules()
       this.dialogStatus = 'create'
       this.dialogFormVisible = true
       this.$nextTick(() => {
         this.$refs['dataForm'].clearValidate()
-        // 清空图片选择
-        this.$refs.upload.clearFiles()
       })
     },
     // 保存新增的数据
@@ -285,8 +361,13 @@ export default {
           }
           this.uploadForm.append('category', this.temp.category)
           this.uploadForm.append('name', this.temp.name)
+          var specList = this.getSpecifications(this.temp.specifications)
+          if (specList.length > 0) {
+            this.uploadForm.append('specifications', JSON.stringify(specList))
+          }
           createGoods(this.uploadForm).then(response => {
             this.list.unshift(response)
+            this.uploadForm = new FormData()
             this.dialogFormVisible = false
             this.$notify({
               title: '成功',
@@ -298,29 +379,94 @@ export default {
         }
       })
     },
+
+    // 获取弹出框分类选择的数据
+    getCategoryOptions() {
+      getAllCategory().then(response => {
+        this.categoryOptions = response.results
+      })
+    },
+    // 编辑时弹出更新的模态框
     handleUpdate(row) {
-      this.temp = Object.assign({}, row) // copy obj
-      const cover_img = this.temp.cover_img
-      this.temp.cover_img = [{ 'name': '图片1', 'url': cover_img }]
+      // if (row.specifications.length === 0) {
+      //   console.log('aaa')
+      //   row.specifications = [
+      //     { 'name': '', 'price': '' }
+      //   ]
+      // }
+      this.temp = JSON.parse(JSON.stringify(row)) // 深拷贝, 不能Object.assign, 因为row是两层
+      this.originData = JSON.parse(JSON.stringify(row))
+      this.temp.cover_img = [{ 'name': '封面图', 'url': this.originData.cover_img }]
       this.getCategoryOptions()
       this.dialogStatus = 'update'
       this.dialogFormVisible = true
+      this.rules.cover_img = []
       this.$nextTick(() => {
         this.$refs['dataForm'].clearValidate()
       })
     },
+    // 两个json有相同的字段, 比较返回旧的json里更新了的数据
+    diffTwoDict(old_dict, new_dict) {
+      const tmp = {}
+      for (var key in new_dict) {
+        if (new_dict[key] !== old_dict[key]) {
+          tmp[key] = new_dict[key]
+        }
+      }
+      // 不验证cover_img, specifications
+      delete tmp.cover_img
+      delete tmp.specifications
+      return tmp
+    },
+    // 返回两个规格列表中不同的数据
+    diffTwoSpec(old_list, new_list) {
+      var tmp = []
+      const old_length = old_list.length
+      const new_length = new_list.length
+      console.log(old_list, new_list)
+      console.log(old_length, new_list)
+      if (old_length > new_length) {
+        return tmp
+      }
+      new_list.forEach(function(element, index, arr) {
+        if (index + 1 > old_length) {
+          tmp.push(element)
+        } else {
+          if ((element.name !== old_list[index].name) || (element.price !== old_list[index].price)) {
+            tmp.push(element)
+          }
+        }
+      })
+      const specList = this.getSpecifications(tmp)
+      return specList
+    },
+    // 更新
     updateData() {
       this.$refs['dataForm'].validate((valid) => {
         if (valid) {
-          const tempData = Object.assign({}, this.temp)
-          tempData.timestamp = +new Date(tempData.timestamp) // change Thu Nov 30 2017 16:41:05 GMT+0800 (CST) to 1512031311464
-          updateArticle(tempData).then(() => {
+          this.$refs.upload.submit()
+          if (!this.toUpload) {
+            return false
+          }
+          const tmp = this.diffTwoDict(this.originData, this.temp)
+          for (var key in tmp) {
+            this.uploadForm.append(key, tmp[key])
+          }
+          const specList = this.diffTwoSpec(this.originData.specifications, this.temp.specifications)
+          console.log(specList)
+          if (specList.length > 0) {
+            this.uploadForm.append('specifications', JSON.stringify(specList))
+          }
+
+          updateGoods(this.temp.id, this.uploadForm).then(response => {
+            console.log(response)
             const index = this.list.findIndex(v => v.id === this.temp.id)
-            this.list.splice(index, 1, this.temp)
+            this.list.splice(index, 1, response)
             this.dialogFormVisible = false
+            this.uploadForm = new FormData()
             this.$notify({
-              title: 'Success',
-              message: 'Update Successfully',
+              title: '成功',
+              message: '更新成功',
               type: 'success',
               duration: 2000
             })
@@ -328,6 +474,8 @@ export default {
         }
       })
     },
+
+    // 点击删除事件
     handleDelete(row, index) {
       this.$confirm('此操作将永久删除该文件, 是否继续?', '提示', {
         confirmButtonText: '确定',
@@ -353,7 +501,9 @@ export default {
       const sort = this.listQuery.sort
       return sort === `+${key}` ? 'ascending' : 'descending'
     },
-    beforeUploadDetail(file) {
+
+    // 封面图文件上传控件, 上传文件前的钩子
+    beforeUpload(file) {
       // 判断文件后缀是否为jpg和png, 不是则提示, 且不请求提交表单
       const FileExt = file.name.replace(/.+\./, '')
       if (['jpg', 'png'].indexOf(FileExt.toLowerCase()) === -1) {
@@ -378,19 +528,28 @@ export default {
       this.toUpload = true
       return false
     },
-    beforeRemove(file, fileList) {
+
+    // 封面图文件上传控件, 将文件从列表移除后的钩子
+    onRemove(file, fileList) {
       // 当没有选择图片时, 修改验证规则为必须
-      console.log('before move' + fileList.length)
-      if (fileList.length === 1) {
+      if (fileList.length === 0) {
+        this.temp.cover_img = []
         this.rules.cover_img = [{ required: true, message: '封面图必须选择!', trigger: 'blur' }]
-      // this.temp.cover_img = ''
       }
     },
+
+    // 封面图文件上传控件, 文件状态改变时的钩子
     onChange(file, fileList) {
       // 上传控件有选择时, 修改验证规则为空
       this.rules.cover_img = []
       this.$refs['cover'].clearValidate()
     },
+
+    // 封面图文件上传控件, 文件超出个数限制时的钩子
+    onExceed(files, fileList) {
+      this.$message.warning(`当前限制选择 1 个文件，本次选择了 ${files.length} 个文件，共选择了 ${files.length + fileList.length} 个文件`)
+    },
+
     checkPermission
   }
 }
@@ -402,7 +561,9 @@ export default {
     margin: auto;
     width: 40px;
     height: 40px;
-    float: left;
-    margin-right: 5px;
 }
+
+/* .edit-input {
+  padding-right: 100px;
+} */
 </style>

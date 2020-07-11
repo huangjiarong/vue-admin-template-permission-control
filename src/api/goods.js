@@ -42,6 +42,17 @@ export function createGoods(data) {
   })
 }
 
+export function updateGoods(id, data) {
+  return request({
+    url: '/api/goods/' + id + '/',
+    method: 'patch',
+    // headers: {
+    //   'Content-Type': 'multipart/form-data'
+    // },
+    data
+  })
+}
+
 export function deleteGoods(id) {
   return request({
     url: '/api/goods/' + id + '/',
