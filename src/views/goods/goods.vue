@@ -11,9 +11,6 @@
       <el-button class="filter-item" style="margin-left: 10px;" type="primary" icon="el-icon-edit" @click="handleCreate">
         添加
       </el-button>
-      <el-checkbox v-model="showReviewer" class="filter-item" style="margin-left:15px;" @change="tableKey=tableKey+1">
-        reviewer
-      </el-checkbox>
     </div>
 
     <el-table
@@ -24,14 +21,8 @@
       fit
       highlight-current-row
       style="width: 100%; margin-top: 10px;"
-      @sort-change="sortChange"
     >
-      <el-table-column label="序号" prop="id" sortable="custom" align="center" width="80" :class-name="getSortClass('id')">
-        <template slot-scope="{row}">
-          <span>{{ row.id }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="商品名" width="150px">
+      <el-table-column label="商品名" width="150px" align="center">
         <template slot-scope="{row}">
           <span class="link-type" @click="handleUpdate(row)">{{ row.name }}</span>
         </template>
@@ -39,6 +30,11 @@
       <el-table-column label="类别" width="110px" align="center">
         <template slot-scope="{row}">
           <span>{{ row.category_name }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="是否为新品" width="100px">
+        <template slot-scope="{row}">
+          <span>{{ row.is_new | typeFilter }}</span>
         </template>
       </el-table-column>
       <el-table-column label="商品描述" width="150px">
@@ -73,7 +69,29 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="230" class-name="small-padding fixed-width">
+      <el-table-column label="商品轮播图" width="180px" align="center">
+        <template slot-scope="scope">
+          <el-image
+            v-for="item in scope.row.slideshow"
+            :key="item.id"
+            class="table-td-thumb multiple_img"
+            :src="item.image"
+            :preview-src-list="[item.image]"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column label="商品详情图" width="180px" align="center">
+        <template slot-scope="scope">
+          <el-image
+            v-for="item in scope.row.detail_img"
+            :key="item.id"
+            class="table-td-thumb multiple_img"
+            :src="item.image"
+            :preview-src-list="[item.image]"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" align="center" width="150" fixed="right" class-name="small-padding fixed-width">
         <template slot-scope="{row,$index}">
           <el-button type="primary" size="mini" @click="handleUpdate(row)">
             编辑
@@ -88,7 +106,7 @@
     <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" @pagination="getList" />
 
     <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible" :before-close="closeDialog" :close-on-click-modal="false" :fullscreen="false" width="70%">
-      <el-form ref="dataForm" :rules="rules" :model="temp" label-position="left" label-width="70px" style="width: 400px; margin-left:50px;" enctype="multipart/form-data">
+      <el-form ref="dataForm" :rules="rules" :model="temp" label-position="left" label-width="70px" style="width: 85%; margin-left:50px;" enctype="multipart/form-data">
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="分类" prop="category">
@@ -98,6 +116,12 @@
             </el-form-item>
             <el-form-item label="商品名" prop="name">
               <el-input v-model="temp.name" />
+            </el-form-item>
+            <el-form-item label="商品简短描述" prop="goods_brief" class="goods_brief">
+              <el-input v-model="temp.goods_brief" />
+            </el-form-item>
+            <el-form-item label="新品" prop="is_new">
+              <el-switch v-model="temp.is_new" />
             </el-form-item>
             <el-form-item v-if="dialogStatus==='create'" ref="cover" label="封面图" prop="cover_img">
               <el-upload
@@ -114,7 +138,7 @@
                 list-type="picture"
               >
                 <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
-                <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
+                <!-- <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div> -->
               </el-upload>
             </el-form-item>
             <el-form-item v-else ref="cover" label="封面图" prop="cover_img">
@@ -133,7 +157,7 @@
                 list-type="picture"
               >
                 <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
-                <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
+                <!-- <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div> -->
               </el-upload>
             </el-form-item>
             <el-table :data="temp.specifications">
@@ -147,24 +171,83 @@
                   <el-input v-model="row.price" class="edit-input" size="small" />
                 </template>
               </el-table-column>
+              <el-table-column label="删除?">
+                <template slot-scope="{row}">
+                  <el-switch v-model="row.delete" />
+                </template>
+              </el-table-column>
             </el-table>
-            <el-form-item>
-              <span class="link-type" @click="addNewSpec"> 点击添加一个规格 </span>
+            <el-form-item class="add_new_col">
+              <span class="link-type" @click="addNewSpec"> 添加一行 </span>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <!-- <el-table :data="specifications">
-              <el-table-column label="商品规格">
-                <template slot-scope="{row}">
-                  <el-input v-model="row.name" class="edit-input" size="medium" />
-                </template>
-              </el-table-column>
-              <el-table-column label="商品价格">
-                <template slot-scope="{row}">
-                  <el-input v-model="row.price" class="edit-input" size="small" />
-                </template>
-              </el-table-column>
-            </el-table> -->
+          <el-col :span="6">
+            <el-form-item v-if="dialogStatus==='create'" ref="slideshow" label="轮播图">
+              <el-upload
+                ref="uploadSlideshow"
+                class="upload-demo"
+                multiple
+                action=""
+                accept="image/png, image/jpeg"
+                :before-upload="beforeUploadSlideshow"
+                :auto-upload="false"
+                list-type="picture"
+              >
+                <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
+                <!-- <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div> -->
+              </el-upload>
+            </el-form-item>
+            <el-form-item v-else ref="slideshow" label="轮播图">
+              <el-upload
+                ref="uploadSlideshow"
+                class="upload-demo"
+                multiple
+                action=""
+                accept="image/png, image/jpeg"
+                :before-upload="beforeUploadSlideshow"
+                :on-remove="onRemoveSlideshow"
+                :auto-upload="false"
+                :file-list="temp.slideshow"
+                list-type="picture"
+              >
+                <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
+                <!-- <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div> -->
+              </el-upload>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item v-if="dialogStatus==='create'" ref="detail_img" label="详情图">
+              <el-upload
+                ref="uploadDetailImg"
+                class="upload-demo"
+                multiple
+                action=""
+                accept="image/png, image/jpeg"
+                :before-upload="beforeUploadDetailImg"
+                :auto-upload="false"
+                list-type="picture"
+              >
+                <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
+                <!-- <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div> -->
+              </el-upload>
+            </el-form-item>
+            <el-form-item v-else ref="detail_img" label="详情图">
+              <el-upload
+                ref="uploadDetailImg"
+                class="upload-demo"
+                multiple
+                action=""
+                accept="image/png, image/jpeg"
+                :before-upload="beforeUploadDetailImg"
+                :on-remove="onRemoveDetailImg"
+                :auto-upload="false"
+                :file-list="temp.detail_img"
+                list-type="picture"
+              >
+                <el-button slot="trigger" size="small" type="primary">选取文件</el-button>
+                <!-- <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div> -->
+              </el-upload>
+            </el-form-item>
           </el-col>
         </el-row>
       </el-form>
@@ -194,13 +277,12 @@ export default {
   components: { Pagination },
   directives: { waves },
   filters: {
-    statusFilter(status) {
-      const statusMap = {
-        published: 'success',
-        draft: 'info',
-        deleted: 'danger'
+    typeFilter(type) {
+      const typeMap = {
+        true: '是',
+        false: '否'
       }
-      return statusMap[status]
+      return typeMap[type]
     }
   },
   data() {
@@ -211,25 +293,23 @@ export default {
       listLoading: true,
       listQuery: {
         page: 1,
-        limit: 20,
-        title: undefined,
-        sort: '+id'
+        limit: 20
       },
       // 该字段用来决定是否进行请求
       toUpload: true,
       uploadForm: new FormData(),
       categoryOptions: [],
       fileList: [],
-      sortOptions: [{ label: 'ID Ascending', key: '+id' }, { label: 'ID Descending', key: '-id' }],
-      statusOptions: ['published', 'draft', 'deleted'],
-      showReviewer: false,
       temp: {
         name: '',
         category: '',
+        goods_brief: '',
+        is_new: true,
         specifications: [
           { 'name': '', 'price': '' },
           { 'name': '', 'price': '' }
-        ]
+        ],
+        delete_slideshow: []
       },
       originData: {},
       dialogFormVisible: false,
@@ -271,35 +351,25 @@ export default {
       this.temp.specifications.push({ 'name': '', 'price': '' })
     },
 
-    handleFilter() {
-      this.listQuery.page = 1
-      this.getList()
-    },
-    handleModifyStatus(row, status) {
-      this.$message({
-        message: '操作Success',
-        type: 'success'
-      })
-      row.status = status
-    },
-    sortChange(data) {
-      const { prop, order } = data
-      if (prop === 'id') {
-        this.sortByID(order)
-      }
-    },
-    sortByID(order) {
-      if (order === 'ascending') {
-        this.listQuery.sort = '+id'
-      } else {
-        this.listQuery.sort = '-id'
-      }
-      this.handleFilter()
-    },
+    // handleFilter() {
+    //   this.listQuery.page = 1
+    //   this.getList()
+    // },
+
+    // sortByID(order) {
+    //   if (order === 'ascending') {
+    //     this.listQuery.sort = '+id'
+    //   } else {
+    //     this.listQuery.sort = '-id'
+    //   }
+    //   this.handleFilter()
+    // },
 
     // 关闭Dialog对话框前的钩子, 清除验证和文件列表
     closeDialog(done) {
       this.$refs.upload.clearFiles()
+      this.$refs.uploadSlideshow.clearFiles()
+      this.$refs.uploadDetailImg.clearFiles()
       this.$refs['dataForm'].clearValidate()
       done()
     },
@@ -307,6 +377,8 @@ export default {
     // 对话框中的取消事件, 清除验证和文件列表
     cancel() {
       this.$refs.upload.clearFiles()
+      this.$refs.uploadSlideshow.clearFiles()
+      this.$refs.uploadDetailImg.clearFiles()
       this.$refs['dataForm'].clearValidate()
       this.dialogFormVisible = false
     },
@@ -326,12 +398,14 @@ export default {
     resetTemp() {
       this.temp = {
         name: '',
-        category: ''
+        category: '',
+        goods_brief: '',
+        is_new: true,
+        specifications: [
+          { 'name': '', 'price': '', 'delete': false },
+          { 'name': '', 'price': '', 'delete': false }
+        ]
       }
-      this.temp.specifications = [
-        { 'name': '', 'price': '' },
-        { 'name': '', 'price': '' }
-      ]
       this.uploadForm = new FormData()
     },
     // 打开弹出框时重置upload控件的规则
@@ -356,11 +430,17 @@ export default {
       this.$refs['dataForm'].validate((valid) => {
         if (valid) {
           this.$refs.upload.submit()
+          this.$refs.uploadSlideshow.submit()
+          this.$refs.uploadDetailImg.submit()
           if (!this.toUpload) {
             return false
           }
+          if (this.temp.goods_brief) {
+            this.uploadForm.append('goods_brief', this.temp.goods_brief)
+          }
           this.uploadForm.append('category', this.temp.category)
           this.uploadForm.append('name', this.temp.name)
+          this.uploadForm.append('is_new', this.temp.is_new)
           var specList = this.getSpecifications(this.temp.specifications)
           if (specList.length > 0) {
             this.uploadForm.append('specifications', JSON.stringify(specList))
@@ -388,15 +468,22 @@ export default {
     },
     // 编辑时弹出更新的模态框
     handleUpdate(row) {
-      // if (row.specifications.length === 0) {
-      //   console.log('aaa')
-      //   row.specifications = [
-      //     { 'name': '', 'price': '' }
-      //   ]
-      // }
+      var that = this
       this.temp = JSON.parse(JSON.stringify(row)) // 深拷贝, 不能Object.assign, 因为row是两层
       this.originData = JSON.parse(JSON.stringify(row))
+      // 修改下图片数据, 以便upload控件显示
       this.temp.cover_img = [{ 'name': '封面图', 'url': this.originData.cover_img }]
+      this.temp.slideshow = []
+      this.temp.detail_img = []
+      this.temp.delete_slideshow = [] // 保存删除的原有轮播图的id
+      this.temp.delete_detailImg = [] // 保存删除的原有详情图的id
+      this.originData.slideshow.forEach(function(element, index, arr) {
+        that.temp.slideshow.push({ 'name': '轮播图' + (index + 1), 'url': element.image, 'slideshow_id': element.id })
+      })
+      this.originData.detail_img.forEach(function(element, index, arr) {
+        that.temp.detail_img.push({ 'name': '详情图' + (index + 1), 'url': element.image, 'detailImg_id': element.id })
+      })
+
       this.getCategoryOptions()
       this.dialogStatus = 'update'
       this.dialogFormVisible = true
@@ -413,8 +500,10 @@ export default {
           tmp[key] = new_dict[key]
         }
       }
-      // 不验证cover_img, specifications
+      // 不验证以下字段
       delete tmp.cover_img
+      delete tmp.slideshow
+      delete tmp.detail_img
       delete tmp.specifications
       return tmp
     },
@@ -423,8 +512,6 @@ export default {
       var tmp = []
       const old_length = old_list.length
       const new_length = new_list.length
-      console.log(old_list, new_list)
-      console.log(old_length, new_list)
       if (old_length > new_length) {
         return tmp
       }
@@ -432,7 +519,7 @@ export default {
         if (index + 1 > old_length) {
           tmp.push(element)
         } else {
-          if ((element.name !== old_list[index].name) || (element.price !== old_list[index].price)) {
+          if ((element.name !== old_list[index].name) || (element.price !== old_list[index].price) || element.delete) {
             tmp.push(element)
           }
         }
@@ -445,6 +532,8 @@ export default {
       this.$refs['dataForm'].validate((valid) => {
         if (valid) {
           this.$refs.upload.submit()
+          this.$refs.uploadSlideshow.submit()
+          this.$refs.uploadDetailImg.submit()
           if (!this.toUpload) {
             return false
           }
@@ -453,13 +542,17 @@ export default {
             this.uploadForm.append(key, tmp[key])
           }
           const specList = this.diffTwoSpec(this.originData.specifications, this.temp.specifications)
-          console.log(specList)
           if (specList.length > 0) {
             this.uploadForm.append('specifications', JSON.stringify(specList))
           }
-
+          if (this.temp.delete_slideshow.length > 0) {
+            this.uploadForm.append('delete_slideshow', JSON.stringify(this.temp.delete_slideshow))
+          }
+          if (this.temp.delete_detailImg.length > 0) {
+            this.uploadForm.append('delete_detailImg', JSON.stringify(this.temp.delete_detailImg))
+          }
           updateGoods(this.temp.id, this.uploadForm).then(response => {
-            console.log(response)
+            console.log(response, this.temp)
             const index = this.list.findIndex(v => v.id === this.temp.id)
             this.list.splice(index, 1, response)
             this.dialogFormVisible = false
@@ -497,14 +590,15 @@ export default {
         })
       })
     },
-    getSortClass: function(key) {
-      const sort = this.listQuery.sort
-      return sort === `+${key}` ? 'ascending' : 'descending'
-    },
+    // getSortClass: function(key) {
+    //   const sort = this.listQuery.sort
+    //   return sort === `+${key}` ? 'ascending' : 'descending'
+    // },
 
     // 封面图文件上传控件, 上传文件前的钩子
     beforeUpload(file) {
       // 判断文件后缀是否为jpg和png, 不是则提示, 且不请求提交表单
+      console.log('befor upload cover_img')
       const FileExt = file.name.replace(/.+\./, '')
       if (['jpg', 'png'].indexOf(FileExt.toLowerCase()) === -1) {
         this.$message({
@@ -550,6 +644,75 @@ export default {
       this.$message.warning(`当前限制选择 1 个文件，本次选择了 ${files.length} 个文件，共选择了 ${files.length + fileList.length} 个文件`)
     },
 
+    // 轮播图文件上传控件, 上传文件前的钩子
+    beforeUploadSlideshow(file) {
+      // 判断文件后缀是否为jpg和png, 不是则提示, 且不请求提交表单
+      const FileExt = file.name.replace(/.+\./, '')
+      if (['jpg', 'png'].indexOf(FileExt.toLowerCase()) === -1) {
+        this.$message({
+          type: 'error',
+          message: '请上传后缀名为jpg、png的附件！'
+        })
+        this.toUpload = false
+        return false
+      }
+      // 限制文件上传大小, 大于5M则提示, 且不请求提交表单
+      const isLt5M = file.size / 1024 / 1024 < 5
+      if (!isLt5M) {
+        this.$message({
+          message: '上传文件大小不能超过5M!',
+          type: 'error'
+        })
+        this.toUpload = false
+        return false
+      }
+      this.uploadForm.append('slideshow', file)
+      this.toUpload = true
+      return false
+    },
+    // 轮播图上传控件, 将文件从列表移除的钩子
+    onRemoveSlideshow(file, fileList) {
+      // 原先在图片列表中的图片被删除时, 构造一个列表保存将要删除的图片的id
+      if (file.status === 'success') {
+        this.temp.delete_slideshow.push(file.slideshow_id)
+      }
+    },
+
+    // 详情图文件上传控件, 上传文件前的钩子
+    beforeUploadDetailImg(file) {
+      // 判断文件后缀是否为jpg和png, 不是则提示, 且不请求提交表单
+      const FileExt = file.name.replace(/.+\./, '')
+      if (['jpg', 'png'].indexOf(FileExt.toLowerCase()) === -1) {
+        this.$message({
+          type: 'error',
+          message: '请上传后缀名为jpg、png的附件！'
+        })
+        this.toUpload = false
+        return false
+      }
+      // 限制文件上传大小, 大于5M则提示, 且不请求提交表单
+      const isLt5M = file.size / 1024 / 1024 < 5
+      if (!isLt5M) {
+        this.$message({
+          message: '上传文件大小不能超过5M!',
+          type: 'error'
+        })
+        this.toUpload = false
+        return false
+      }
+      this.uploadForm.append('detail_img', file)
+      this.toUpload = true
+      return false
+    },
+    // 详情图的上传控件中, 将文件从列表移除的钩子
+    onRemoveDetailImg(file, fileList) {
+      console.log('onremove detail img')
+      // 原先在图片列表中的图片被删除时, 构造一个列表保存将要删除的图片的id
+      if (file.status === 'success') {
+        this.temp.delete_detailImg.push(file.detailImg_id)
+      }
+    },
+
     checkPermission
   }
 }
@@ -561,6 +724,20 @@ export default {
     margin: auto;
     width: 40px;
     height: 40px;
+}
+
+.multiple_img {
+    float: left;
+    margin-right: 10px;
+    margin-top: 5px;
+}
+
+.goods_brief .el-form-item__label {
+    line-height: 20px;
+}
+
+.add_new_col .el-form-item__content {
+    margin-left: 10px !important;
 }
 
 /* .edit-input {
