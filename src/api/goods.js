@@ -46,9 +46,6 @@ export function updateGoods(id, data) {
   return request({
     url: '/api/goods/' + id + '/',
     method: 'patch',
-    // headers: {
-    //   'Content-Type': 'multipart/form-data'
-    // },
     data
   })
 }
@@ -56,6 +53,13 @@ export function updateGoods(id, data) {
 export function deleteGoods(id) {
   return request({
     url: '/api/goods/' + id + '/',
+    method: 'delete'
+  })
+}
+
+export function multipleDeleteGoods(ids) {
+  return request({
+    url: '/api/goods/multiple_delete/?deleteid=' + ids,
     method: 'delete'
   })
 }

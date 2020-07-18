@@ -1,15 +1,18 @@
 <template>
   <div class="app-container">
     <div class="filter-container">
-      <el-input v-model="listQuery.title" placeholder="Title" style="width: 200px;" class="filter-item" @keyup.enter.native="handleFilter" />
+      <!-- <el-input v-model="listQuery.title" placeholder="Title" style="width: 200px;" class="filter-item" @keyup.enter.native="handleFilter" />
       <el-select v-model="listQuery.sort" style="width: 140px" class="filter-item" @change="handleFilter">
         <el-option v-for="item in sortOptions" :key="item.key" :label="item.label" :value="item.key" />
       </el-select>
       <el-button v-waves class="filter-item" style="margin-left: 10px;" type="primary" icon="el-icon-search" @click="handleFilter">
         搜索
-      </el-button>
+      </el-button> -->
       <el-button class="filter-item" style="margin-left: 10px;" type="primary" icon="el-icon-edit" @click="handleCreate">
         添加
+      </el-button>
+      <el-button class="filter-item" style="margin-left: 10px;" type="primary" icon="el-icon-edit" @click="handleMultipleDelete">
+        批量删除
       </el-button>
     </div>
 
@@ -21,7 +24,17 @@
       fit
       highlight-current-row
       style="width: 100%; margin-top: 10px;"
+      @selection-change="handleSelectionChange"
     >
+      <el-table-column
+        type="selection"
+        width="55"
+        align="center"
+      >
+        <!-- <template slot-scope="scope">
+          <el-checkbox @change="showIndex(scope.$index)" />
+        </template> -->
+      </el-table-column>
       <el-table-column label="商品名" width="150px" align="center">
         <template slot-scope="{row}">
           <span class="link-type" @click="handleUpdate(row)">{{ row.name }}</span>
@@ -160,15 +173,20 @@
                 <!-- <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div> -->
               </el-upload>
             </el-form-item>
-            <el-table :data="temp.specifications">
+            <!-- <el-form-item> -->
+            <el-table :data="temp.specifications" class="dialogTable">
               <el-table-column label="商品规格">
                 <template slot-scope="{row}">
-                  <el-input v-model="row.name" class="edit-input" size="small" />
+                  <el-form-item>
+                    <el-input v-model="row.name" class="edit-input" size="small" />
+                  </el-form-item>
                 </template>
               </el-table-column>
               <el-table-column label="商品价格">
-                <template slot-scope="{row}">
-                  <el-input v-model="row.price" class="edit-input" size="small" />
+                <template slot-scope="scope">
+                  <el-form-item :prop="'specifications.'+scope.$index+'.price'" :rules="rulesList(scope.$index)">
+                    <el-input v-model="scope.row.price" class="edit-input" size="small" />
+                  </el-form-item>
                 </template>
               </el-table-column>
               <el-table-column label="删除?">
@@ -177,6 +195,7 @@
                 </template>
               </el-table-column>
             </el-table>
+            <!-- </el-form-item> -->
             <el-form-item class="add_new_col">
               <span class="link-type" @click="addNewSpec"> 添加一行 </span>
             </el-form-item>
@@ -267,7 +286,7 @@
 
 <script>
 // import { fetchList, fetchPv, createArticle, updateArticle } from '@/api/article'
-import { getAllGoods, getAllCategory, deleteGoods, createGoods, updateGoods } from '@/api/goods'
+import { getAllGoods, getAllCategory, deleteGoods, multipleDeleteGoods, createGoods, updateGoods } from '@/api/goods'
 import waves from '@/directive/waves' // waves directive
 import checkPermission from '@/utils/permission'
 import Pagination from '@/components/Pagination' // secondary package based on el-pagination
@@ -286,6 +305,18 @@ export default {
     }
   },
   data() {
+    // var checkPrice = (rule, value, callback) => {
+    //   if (!value) {
+    //     return callback(new Error('价格不能为空'))
+    //   }
+    //   setTimeout(() => {
+    //     if (!Number.isInteger(value)) {
+    //       callback(new Error('请输入数字值'))
+    //     } else {
+    //       callback()
+    //     }
+    //   }, 1000)
+    // }
     return {
       tableKey: 0,
       list: null,
@@ -323,9 +354,26 @@ export default {
       rules: {
         category: [{ required: true, message: '分类是必须选择的!', trigger: 'change' }],
         name: [{ required: true, message: '商品名是必须填写的!', trigger: 'blur' }],
+        price: [{ type: 'number', message: '必须为数字', trigger: 'blur' }],
         cover_img: [{ required: true, message: '封面图必须选择!', trigger: 'blur' }]
       },
+      price_rule1: {
+        price: [{ type: 'number', message: '数字!', trigger: 'blur' }]
+      },
+      price_rule2: {
+        price: [{ type: 'number', message: '数字!', trigger: 'blur' }]
+      },
       downloadLoading: false
+    }
+  },
+  computed: {
+    rulesList: function(index) {
+      console.log('ffff   ', index)
+      if (this.temp.specifications.index.name) {
+        return this.price_rule1
+      } else {
+        return this.price_rule2
+      }
     }
   },
   created() {
@@ -343,6 +391,37 @@ export default {
         setTimeout(() => {
           this.listLoading = false
         }, 1.5 * 1000)
+      })
+    },
+
+    // 表格多选框的事件
+    handleSelectionChange(val) {
+      this.selectData = val
+    },
+
+    // 批量删除事件
+    handleMultipleDelete() {
+      var id_lst = []
+      this.selectData.forEach(function(element, index, arr) {
+        id_lst.push(element.id)
+      })
+      this.$confirm('此操作将进行批量删除, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        multipleDeleteGoods(JSON.stringify(id_lst)).then(response => {
+          this.list = this.list.filter(t => !this.selectData.some(s => s.id === t.id))
+          this.$message({
+            type: 'success',
+            message: '批量删除成功!'
+          })
+        })
+      }).catch(() => {
+        this.$message({
+          type: 'info',
+          message: '已取消批量删除'
+        })
       })
     },
 
@@ -570,7 +649,7 @@ export default {
 
     // 点击删除事件
     handleDelete(row, index) {
-      this.$confirm('此操作将永久删除该文件, 是否继续?', '提示', {
+      this.$confirm('此操作将删除该商品, 是否继续?', '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
@@ -738,6 +817,14 @@ export default {
 
 .add_new_col .el-form-item__content {
     margin-left: 10px !important;
+}
+
+.dialogTable .el-form-item {
+  margin-bottom: 0px;
+}
+
+.dialogTable .el-form-item .el-form-item__content{
+  margin-left: 0px !important;
 }
 
 /* .edit-input {
